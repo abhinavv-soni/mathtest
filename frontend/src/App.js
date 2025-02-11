@@ -10,6 +10,7 @@ function App() {
   const [gameActive, setGameActive] = useState(false);
   const [highScores, setHighScores] = useState([]);
   const [gameOver, setGameOver] = useState(false);
+  const [feedback, setFeedback] = useState({ show: false, correct: false });
 
   // Generate a random arithmetic question
   const generateQuestion = () => {
@@ -50,18 +51,60 @@ function App() {
     setCurrentQuestion(generateQuestion());
   };
 
+  // Fetch high scores
+  const fetchHighScores = async () => {
+    try {
+      const response = await fetch('http://localhost:55261/scores');
+      const data = await response.json();
+      setHighScores(data.scores);
+    } catch (error) {
+      console.error('Error fetching high scores:', error);
+    }
+  };
+
+  // Save score to backend
+  const saveScore = async (finalScore) => {
+    try {
+      await fetch('http://localhost:55261/scores', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          score: finalScore,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      fetchHighScores();
+    } catch (error) {
+      console.error('Error saving score:', error);
+    }
+  };
+
   // Handle answer submission
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!gameActive) return;
 
     const userNum = Number(userAnswer);
-    if (userNum === currentQuestion.answer) {
+    const isCorrect = userNum === currentQuestion.answer;
+    
+    setFeedback({ show: true, correct: isCorrect });
+    setTimeout(() => setFeedback({ show: false, correct: false }), 1000);
+
+    if (isCorrect) {
       setScore(prev => prev + 1);
     }
+    
     setCurrentQuestion(generateQuestion());
     setUserAnswer('');
   };
+
+  // Timer effect
+  // Load high scores on mount
+  useEffect(() => {
+    fetchHighScores();
+  }, []);
 
   // Timer effect
   useEffect(() => {
@@ -73,11 +116,7 @@ function App() {
     } else if (timeLeft === 0 && gameActive) {
       setGameActive(false);
       setGameOver(true);
-      // Update high scores
-      setHighScores(prev => {
-        const newScores = [...prev, score].sort((a, b) => b - a).slice(0, 5);
-        return newScores;
-      });
+      saveScore(score);
     }
     return () => clearInterval(timer);
   }, [timeLeft, gameActive]);
@@ -125,6 +164,11 @@ function App() {
                     Submit
                   </button>
                 </form>
+                {feedback.show && (
+                  <div className={`mt-4 p-2 text-center rounded ${feedback.correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {feedback.correct ? 'Correct!' : 'Wrong answer, try again!'}
+                  </div>
+                )}
               </div>
             </div>
           )}
