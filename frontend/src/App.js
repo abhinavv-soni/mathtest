@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Trophy, Brain, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
@@ -13,6 +12,14 @@ function App() {
   const [highScores, setHighScores] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [feedback, setFeedback] = useState({ show: false, correct: false });
+
+  // Load high scores from localStorage
+  useEffect(() => {
+    const savedScores = localStorage.getItem('highScores');
+    if (savedScores) {
+      setHighScores(JSON.parse(savedScores));
+    }
+  }, []);
 
   // Generate a random arithmetic question
   const generateQuestion = () => {
@@ -53,36 +60,6 @@ function App() {
     setCurrentQuestion(generateQuestion());
   };
 
-  // Fetch high scores
-  const fetchHighScores = async () => {
-    try {
-      const response = await fetch('http://localhost:55261/scores');
-      const data = await response.json();
-      setHighScores(data.scores);
-    } catch (error) {
-      console.error('Error fetching high scores:', error);
-    }
-  };
-
-  // Save score to backend
-  const saveScore = async (finalScore) => {
-    try {
-      await fetch('http://localhost:55261/scores', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          score: finalScore,
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      fetchHighScores();
-    } catch (error) {
-      console.error('Error saving score:', error);
-    }
-  };
-
   // Handle answer submission
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -102,11 +79,14 @@ function App() {
     setUserAnswer('');
   };
 
-  // Timer effect
-  // Load high scores on mount
-  useEffect(() => {
-    fetchHighScores();
-  }, []);
+  // Update high scores
+  const updateHighScores = (finalScore) => {
+    const newHighScores = [...highScores, finalScore]
+      .sort((a, b) => b - a)
+      .slice(0, 5);
+    setHighScores(newHighScores);
+    localStorage.setItem('highScores', JSON.stringify(newHighScores));
+  };
 
   // Timer effect
   useEffect(() => {
@@ -118,7 +98,7 @@ function App() {
     } else if (timeLeft === 0 && gameActive) {
       setGameActive(false);
       setGameOver(true);
-      saveScore(score);
+      updateHighScores(score);
     }
     return () => clearInterval(timer);
   }, [timeLeft, gameActive]);
